@@ -1,5 +1,6 @@
-from odoo import fields, api, models, _
+from odoo import fields, api, SUPERUSER_ID, models, _
 from odoo.exceptions import ValidationError
+
 
 class CustomerService(models.TransientModel):
     _name = 'customer.service'
@@ -10,7 +11,7 @@ class CustomerService(models.TransientModel):
     customer_service_line_ids = fields.One2many('customer.service.line', 'customer_service_line_id', string="ids")
 
     def customer_service(self):
-        token_data = self.env['token.token'].search([('service_done', '=', False)])
+        token_data = self.env['token.token'].search([('service_done', '=', False)], limit=1)
         print("data", token_data)
         token_list = []
         if token_data:
@@ -24,6 +25,11 @@ class CustomerService(models.TransientModel):
                 )
         else:
             raise ValidationError(_("Not available token"))
+        token = self.env['token.show'].search([])
+        print("id", type(token), token)
+        print("num", token.token_number)
+        for test in self.customer_service_line_ids:
+            token.token_number = test.customer
         return {
             'type': 'ir.actions.act_window',
             'view_mode': 'form',
@@ -39,6 +45,7 @@ class CustomerServiceLine(models.TransientModel):
     customer = fields.Char(string="Customer Token")
     customer_name = fields.Char(string="Customer Name")
     customer_mobile = fields.Integer(string="Mobile")
+    customer_call = fields.Boolean(default=False, string="Call")
     service_comment = fields.Text(string="Service comment")
     customer_service_line_id = fields.Many2one('customer.service', string="id")
 
@@ -56,3 +63,12 @@ class CustomerServiceLine(models.TransientModel):
             'res_model': 'customer.service',
             'target': 'new',
         }
+
+    @api.onchange('customer_call')
+    def onchange_customer_call(self):
+        if self.customer_call:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'reload',
+                'model': 'token.show'
+            }
